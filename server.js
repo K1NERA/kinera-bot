@@ -4,7 +4,7 @@ const { default: axios } = require("axios");
 
 // Load environment variables
 config();
-const url = "http://localhost:8000/api/constellations";
+const url = `${process.env.URL}/api/constellations`;
 const wsProvider = new WsProvider("wss://node.kinera.network");
 
 async function subscribeToEvents() {
