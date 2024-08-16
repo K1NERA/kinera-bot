@@ -13,7 +13,6 @@ async function subscribeToEvents() {
   api.query.system.events(async (events) => {
     for (const record of events) {
       const { event } = record;
-      //  console.log("event", event);
       if (
         event.section === "festivalModule" &&
         event.method === "FestivalCreated"
@@ -23,7 +22,6 @@ async function subscribeToEvents() {
         let number = event.toHuman();
 
         const festivalIdNumber = number.data[1];
-        console.log("asa", festivalIdNumber);
         try {
           const festivalDetails = await api.query.festivalModule.festivals(
             festivalIdNumber
@@ -60,7 +58,6 @@ async function subscribeToEvents() {
               votePowerDecreaseBlock: details.votePowerDecreaseBlock
             };
 
-            console.log("dale", payload);
 
             axios
               .post(url, payload)
