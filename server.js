@@ -13,7 +13,6 @@ async function subscribeToEvents() {
   api.query.system.events(async (events) => {
     for (const record of events) {
       const { event } = record;
-      //  console.log("event", event);
       if (
         event.section === "festivalModule" &&
         event.method === "FestivalCreated"
