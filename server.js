@@ -132,10 +132,71 @@ async function subscribeToCommunityEvents() {
   });
 }
 
+async function eventApproveMember() {
+  const url = "https://api.kinera.network/api/community/";
+  const wsProvider = new WsProvider("wss://node.kinera.network");
+  const api = await ApiPromise.create({ provider: wsProvider });
+
+  api.query.system.events(async (events) => {
+    for (const record of events) {
+      const { event } = record;
+      //console.log('event',event)
+      // Filtrar evento de criação de comunidade e conclusão de votação
+      if (
+        event.section === "communitiesModule" &&
+        event.method === "MemberAdded"
+      ) {
+        const [user] = event.data;
+        console.log(' event.data',  event.toHuman())
+        let data = event.toHuman();
+
+        console.log(' event.data',  data.data[0])
+        console.log(' event.data',  data.data[1])
+
+        if(data && data.data && data.data[0]) {
+          let communityDetails = await api.query.communitiesModule.communities(
+            data.data[1]
+          );
+  
+          try {
+            if (communityDetails.isSome) {
+              let details = communityDetails.toHuman();
+              const communityType = Object.keys(details.communityType)[0]; // e.g., "Private"
+              const monthlyFee =
+                details.communityType[communityType].monthlyFee || 0;
+  
+              if (details.voteResult === "Approve") {
+                const payload = {
+                  name: details.name,
+                  type: Object.keys(details.communityType)[0],
+                  user_address:  data.data[0],
+                  community_id: data.data[1],
+                  monthly_fee: monthlyFee
+                };
+  
+                axios
+                  .post(url, payload)
+                  .then((response) => {
+                    console.log("Community sent successfully:", response.data);
+                  })
+                  .catch((error) => {
+                    console.error("Error sending community data:", error);
+                  });
+              }
+            }
+          } catch (err) {
+            console.log(err);
+          }
+        }
+      }
+    }
+  });
+}
+
 function formatToString(categories) {
   let formatted = categories.join(",");
   return formatted;
 }
-
+eventApproveMember()
 subscribeToEvents();
 subscribeToCommunityEvents();
