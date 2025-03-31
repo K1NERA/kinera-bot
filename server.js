@@ -4,10 +4,10 @@ const { default: axios } = require("axios");
 
 // Load environment variables
 config();
-const url = `${process.env.URL}/api/constellations`;
-const wsProvider = new WsProvider("wss://node.kinera.network");
 
 async function subscribeToEvents() {
+  const url = "https://api.kinera.network/api/constellations";
+  const wsProvider = new WsProvider("wss://node.kinera.network");
   const api = await ApiPromise.create({ provider: wsProvider });
 
   api.query.system.events(async (events) => {
@@ -58,6 +58,7 @@ async function subscribeToEvents() {
               votePowerDecreaseBlock: details.votePowerDecreaseBlock
             };
 
+            //    console.log("dale", payload);
 
             axios
               .post(url, payload)
@@ -76,24 +77,126 @@ async function subscribeToEvents() {
   });
 }
 
-function hexToString(hex) {
-  if (!hex) return "";
+async function subscribeToCommunityEvents() {
+  const url = "https://api.kinera.network/api/community/";
+  const wsProvider = new WsProvider("wss://node.kinera.network");
+  const api = await ApiPromise.create({ provider: wsProvider });
 
-  // Remove the '0x' prefix if it exists
-  hex = hex.startsWith("0x") ? hex.slice(2) : hex;
+  api.query.system.events(async (events) => {
+    for (const record of events) {
+      const { event } = record;
+      //console.log('event',event)
+      // Filtrar evento de criação de comunidade e conclusão de votação
+      if (
+        event.section === "communitiesModule" &&
+        event.method === "VotingConcluded"
+      ) {
+        const [communityId] = event.data;
 
-  let str = "";
-  for (let i = 0; i < hex.length; i += 2) {
-    const part = hex.substr(i, 2);
-    str += String.fromCharCode(parseInt(part, 16));
-  }
+        // Obter o número humano da comunidade
+        let communityDetails = await api.query.communitiesModule.communities(
+          communityId
+        );
 
-  return str;
+        try {
+          if (communityDetails.isSome) {
+            let details = communityDetails.toHuman();
+            const communityType = Object.keys(details.communityType)[0]; // e.g., "Private"
+            const monthlyFee =
+              details.communityType[communityType].monthlyFee || 0;
+
+            if (details.voteResult === "Approve") {
+              const payload = {
+                name: details.name,
+                type: Object.keys(details.communityType)[0],
+                user_address: details.createdBy,
+                community_id: details.id,
+                monthly_fee: monthlyFee
+              };
+
+              axios
+                .post(url, payload)
+                .then((response) => {
+                  console.log("Community sent successfully:", response.data);
+                })
+                .catch((error) => {
+                  console.error("Error sending community data:", error);
+                });
+            }
+          }
+        } catch (err) {
+          console.log(err);
+        }
+      }
+    }
+  });
+}
+
+async function eventApproveMember() {
+  const url = "https://api.kinera.network/api/community/";
+  const wsProvider = new WsProvider("wss://node.kinera.network");
+  const api = await ApiPromise.create({ provider: wsProvider });
+
+  api.query.system.events(async (events) => {
+    for (const record of events) {
+      const { event } = record;
+      //console.log('event',event)
+      // Filtrar evento de criação de comunidade e conclusão de votação
+      if (
+        event.section === "communitiesModule" &&
+        event.method === "MemberAdded"
+      ) {
+        const [user] = event.data;
+        console.log(' event.data',  event.toHuman())
+        let data = event.toHuman();
+
+        console.log(' event.data',  data.data[0])
+        console.log(' event.data',  data.data[1])
+
+        if(data && data.data && data.data[0]) {
+          let communityDetails = await api.query.communitiesModule.communities(
+            data.data[1]
+          );
+  
+          try {
+            if (communityDetails.isSome) {
+              let details = communityDetails.toHuman();
+              const communityType = Object.keys(details.communityType)[0]; // e.g., "Private"
+              const monthlyFee =
+                details.communityType[communityType].monthlyFee || 0;
+  
+              if (details.voteResult === "Approve") {
+                const payload = {
+                  name: details.name,
+                  type: Object.keys(details.communityType)[0],
+                  user_address:  data.data[0],
+                  community_id: data.data[1],
+                  monthly_fee: monthlyFee
+                };
+  
+                axios
+                  .post(url, payload)
+                  .then((response) => {
+                    console.log("Community sent successfully:", response.data);
+                  })
+                  .catch((error) => {
+                    console.error("Error sending community data:", error);
+                  });
+              }
+            }
+          } catch (err) {
+            console.log(err);
+          }
+        }
+      }
+    }
+  });
 }
 
 function formatToString(categories) {
   let formatted = categories.join(",");
   return formatted;
 }
-
+eventApproveMember()
 subscribeToEvents();
+subscribeToCommunityEvents();
